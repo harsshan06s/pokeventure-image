@@ -16,9 +16,18 @@ function normalizeName($name)
     $name = str_replace(':', '', $name);
     $name = str_replace('mega-y', 'megay', $name);
     $name = str_replace('mega-x', 'megax', $name);
-    $name = str_replace('-o', 'o', $name);
+    $name = str_replace('-strike', 'strike', $name);
+    $name = str_replace('white-striped', 'whitestriped', $name);
+    $name = str_replace('blue-striped', 'bluestriped', $name);
+    $name = str_replace('rock-star', 'rockstar', $name);
+    $name = str_replace('pop-star', 'popstar', $name);
+    $name = str_replace('dusk-mane', 'duskmane', $name);
+    $name = str_replace('dawn-wings', 'dawnwings', $name);
+    if(strpos($name, "giratina") === false && strpos($name, "dialga") === false && strpos($name, "palkia") === false) {
+        $name = str_replace('-o', 'o', $name);
+    }
     $name = str_replace('é', 'e', $name);
-    if (strpos($name, 'nidoran') !== false || strpos($name, 'porygon') !== false) {
+    if (strpos($name, 'nidoran') !== false || (strpos($name, 'porygon') !== false && strpos($name, 'xmas') === false)) {
         $name = str_replace('-', '', $name);
     }
     return $name;
@@ -47,9 +56,11 @@ try {
     if (!empty($data->p2->substitute)) {
         $enemy_pokemon = $imagine->open('./img/front/substitute.gif');
     } else {
-        $enemy_pokemon = $imagine->open('./img/front' . ($data->p2->shiny ? '-shiny' : '') . '/' . normalizeName($data->p2->pokemon) . $data->p2->forme . '.gif');
+        $enemy_pokemon = $imagine->open('./img/front' . ($data->p2->shiny ? '-shiny' : '') . '/' . normalizeName($data->p2->pokemon) . normalizeName($data->p2->forme) . '.gif');
     }
 } catch (Exception $e) {
+    var_dump($e);
+    die;
     $enemy_pokemon = $imagine->open('./img/missingno.png');
 }
 $enemy_pokemon_size = $enemy_pokemon->getSize();
@@ -57,13 +68,14 @@ try {
     if (!empty($data->p1->substitute)) {
         $player_pokemon = $imagine->open('./img/back/substitute.gif');
     } else {
-        $player_pokemon = $imagine->open('./img/back' . ($data->p1->shiny ? '-shiny' : '') . '/' . normalizeName($data->p1->pokemon) . $data->p1->forme . '.gif');
+        $player_pokemon = $imagine->open('./img/back' . ($data->p1->shiny ? '-shiny' : '') . '/' . normalizeName($data->p1->pokemon) . normalizeName($data->p1->forme) . '.gif');
     }
 } catch (Exception $e) {
+    var_dump($e);
+    die;
     $player_pokemon = $imagine->open('./img/missingno.png');
 }
 $player_pokemon_size = $player_pokemon->getSize();
-
 
 $male = $imagine->open('./img/male.png');
 $female = $imagine->open('./img/female.png');
@@ -132,7 +144,9 @@ $image->draw()->rectangle(new Point(99, 53), new Point(99 + $percentP2, 58), $pa
 $image->draw()->rectangle(new Point(376, 218), new Point(376 + $percentP1, 223), $palette->color('#16bf1d'), true);
 
 $options = array(
-    'jpeg_quality' => 70,
+    'jpeg_quality' => 90,
+    'resolution-x' => $canvasWidth,
+    'resolution-y' => $canvasHeight,
 );
 
 $image

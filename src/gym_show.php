@@ -16,9 +16,19 @@ function normalizeName($name)
     $name = str_replace(':', '', $name);
     $name = str_replace('mega-y', 'megay', $name);
     $name = str_replace('mega-x', 'megax', $name);
-    $name = str_replace('-o', 'o', $name);
+    $name = str_replace('-strike', 'strike', $name);
+    $name = str_replace('white-striped', 'whitestriped', $name);
+    $name = str_replace('blue-striped', 'bluestriped', $name);
+    $name = str_replace('rock-star', 'rockstar', $name);
+    $name = str_replace('pop-star', 'popstar', $name);
+    $name = str_replace('dusk-mane', 'duskmane', $name);
+    $name = str_replace('dawn-wings', 'dawnwings', $name);
+    $name = str_replace('vdays', '-vdays', $name);
+    if(strpos($name, "giratina") === false && strpos($name, "dialga") === false && strpos($name, "palkia") === false) {
+        $name = str_replace('-o', 'o', $name);
+    }
     $name = str_replace('é', 'e', $name);
-    if (strpos($name, 'nidoran') !== false || strpos($name, 'porygon') !== false) {
+    if (strpos($name, 'nidoran') !== false || (strpos($name, 'porygon') !== false && strpos($name, 'xmas') === false)) {
         $name = str_replace('-', '', $name);
     }
     return $name;
@@ -40,9 +50,14 @@ $bg = $imagine->open('./img/bgs/-1.jpeg');
 $pokemonImages = [];
 $totalWidth = 0;
 for($i = 0; $i < count($data->pokemons); $i++) {
-    $pkmImg = $imagine->open('./img/front' . ($data->pokemons[$i]->shiny ? '-shiny' : '') . '/' . normalizeName($data->pokemons[$i]->name) . '.gif');
+    try {
+    $pkmImg = $imagine->open('./img/front' . ($data->pokemons[$i]->shiny ? '-shiny' : '') . '/' . normalizeName($data->pokemons[$i]->name) . normalizeName($data->pokemons[$i]->forme) . '.gif');
     $pokemonImages[] = $pkmImg;
     $totalWidth += $pkmImg->getSize()->getWidth();
+    } catch(Exception $e) {
+        echo $e;
+        die;
+    }
 }
 /*try {
     $enemy_pokemon = $imagine->open('./img/front' . ($data->p2->shiny ? '-shiny' : '') . '/' . normalizeName($data->p2->name) . $data->p2->forme . '.gif');
@@ -62,7 +77,7 @@ $font = new Font('./img/pokemon_fire_red.ttf', 18, $palette->color('#000'));
 $image->paste($bg, new Point(0, 0));
 
 for($i = 0; $i < count($pokemonImages); $i++) {
-    $image->paste($pokemonImages[$i], new Point($i * 150 - $pokemonImages[$i]->getSize()->getWidth() / 2 + 110, 175 - $pokemonImages[$i]->getSize()->getHeight()));
+    $image->paste($pokemonImages[$i], new Point(max(0, $i * 150 - $pokemonImages[$i]->getSize()->getWidth() / 2 + 110), max(0, 175 - $pokemonImages[$i]->getSize()->getHeight())));
     $nameBox = $font->box(strtoupper($data->pokemons[$i]->name));
     $image->draw()->text(strtoupper($data->pokemons[$i]->name), $font, new Point($i * 150 - $nameBox->getWidth() / 2 + 110, 180));
     $image->draw()->text('Lv.'. ($data->pokemons[$i]->level), $font, new Point($i * 150 - $nameBox->getWidth() / 2 + 122, 200));
