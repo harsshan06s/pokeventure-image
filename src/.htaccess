@@ -1,4 +1,0 @@
-RewriteEngine On
-RewriteEngine On
-RewriteBase /
-RewriteRule ^(.+).gif$ /$1.php [NC,L]
