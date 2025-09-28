@@ -479,6 +479,6 @@ composer.lock
 *.sass.map
 *.scss.map
 Archive.zip
-img/
+
 .vscode/
 node_modules/
