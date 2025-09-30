@@ -39,22 +39,51 @@ $canvasHeight = 288;
 $image = $imagine->create(new Box($canvasWidth, $canvasHeight));
 $bg = $imagine->open('./img/bgs/' . $data->location . '.jpeg');
 
-try {
-    $enemy_pokemon = !empty($data->p2->substitute)
-        ? $imagine->open('./img/front/substitute.gif')
-        : $imagine->open('./img/front' . ($data->p2->shiny ? '-shiny' : '') . '/' . normalizeName($data->p2->pokemon) . normalizeName($data->p2->forme) . '.gif');
-} catch (Exception $e) {
-    $enemy_pokemon = $imagine->open('./img/missingno.png');
+/**
+ * Try several candidate filenames for a pokemon image to support form naming variations.
+ * Preference order:
+ *  1) direct concat: pokemon + forme
+ *  2) pokemon + '-' + (forme without leading '-'),
+ *  3) pokemon only
+ */
+function openPokemonImage($imagine, $sideDir, $pokemonName, $formeName, $shiny = false) {
+    $baseDir = './img/' . $sideDir . ($shiny ? '-shiny' : '') . '/';
+    $p = normalizeName($pokemonName);
+    $f = normalizeName($formeName);
+
+    $candidates = [];
+
+    // 1) direct concat (existing behavior)
+    if ($f !== '') $candidates[] = $baseDir . $p . $f . '.gif';
+
+    // 2) explicit hyphen between pokemon and forme (handles cases where forme doesn't include leading hyphen)
+    if ($f !== '') $candidates[] = $baseDir . $p . '-' . ltrim($f, '-') . '.gif';
+
+    // 3) fallback to pokemon alone
+    $candidates[] = $baseDir . $p . '.gif';
+
+    foreach ($candidates as $path) {
+        try {
+            if (is_file($path)) {
+                return $imagine->open($path);
+            }
+        } catch (Exception $e) {
+            // ignore and try next
+        }
+    }
+
+    // final fallback
+    return $imagine->open('./img/missingno.png');
 }
+
+$enemy_pokemon = !empty($data->p2->substitute)
+    ? $imagine->open('./img/front/substitute.gif')
+    : openPokemonImage($imagine, 'front' . ($data->p2->shiny ? '-shiny' : ''), $data->p2->pokemon, $data->p2->forme, $data->p2->shiny);
 $enemy_pokemon_size = $enemy_pokemon->getSize();
 
-try {
-    $player_pokemon = !empty($data->p1->substitute)
-        ? $imagine->open('./img/back/substitute.gif')
-        : $imagine->open('./img/back' . ($data->p1->shiny ? '-shiny' : '') . '/' . normalizeName($data->p1->pokemon) . normalizeName($data->p1->forme) . '.gif');
-} catch (Exception $e) {
-    $player_pokemon = $imagine->open('./img/missingno.png');
-}
+$player_pokemon = !empty($data->p1->substitute)
+    ? $imagine->open('./img/back/substitute.gif')
+    : openPokemonImage($imagine, 'back' . ($data->p1->shiny ? '-shiny' : ''), $data->p1->pokemon, $data->p1->forme, $data->p1->shiny);
 $player_pokemon_size = $player_pokemon->getSize();
 
 $male = $imagine->open('./img/male.png');
