@@ -1,8 +1,9 @@
-name: Push Code to Lightsail
+name: Deploy PHP App to Lightsail
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -14,9 +15,17 @@ jobs:
       - name: Push code via rsync over SSH
         uses: burnett01/rsync-deployments@5.2
         with:
-          switches: -avzr --delete
+          switches: -avzr --delete --temp-dir=/tmp
           path: ./
           remote_path: ~/pokeventure-image
           remote_host: ${{ secrets.LIGHTSAIL_HOST }}
           remote_user: ${{ secrets.LIGHTSAIL_USER }}
           remote_key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+
+      - name: Reload PHP-FPM and Nginx
+        run: |
+          ssh -o StrictHostKeyChecking=no -i <(echo "${{ secrets.LIGHTSAIL_SSH_KEY }}") \
+            ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
+              sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.2-fpm;
+              sudo systemctl reload nginx
+            "
