@@ -16,8 +16,10 @@ function normalizeName($name) {
         ['megay','megax','strike','whitestriped','bluestriped','rockstar','popstar','duskmane','dawnwings'],
         $name
     );
-    if (strpos($name, "giratina") === false && strpos($name, "dialga") === false && strpos($name, "palkia") === false) {
-        $name = str_replace('-o', 'o', $name);
+    // Only replace '-o' with 'o' for Pokémon that are NOT Origin forms
+if (!in_array(strtolower($name), ['giratina-origin', 'dialga-origin', 'palkia-origin'])) {
+    $name = str_replace('-o', 'o', $name);
+
     }
     if (strpos($name, 'nidoran') !== false || (strpos($name, 'porygon') !== false && strpos($name, 'xmas') === false)) {
         $name = str_replace('-', '', $name);
