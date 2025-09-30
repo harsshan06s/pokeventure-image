@@ -78,12 +78,12 @@ function openPokemonImage($imagine, $sideDir, $pokemonName, $formeName, $shiny =
 
 $enemy_pokemon = !empty($data->p2->substitute)
     ? $imagine->open('./img/front/substitute.gif')
-    : openPokemonImage($imagine, 'front' . ($data->p2->shiny ? '-shiny' : ''), $data->p2->pokemon, $data->p2->forme, $data->p2->shiny);
+    : openPokemonImage($imagine, 'front', $data->p2->pokemon, $data->p2->forme, $data->p2->shiny);
 $enemy_pokemon_size = $enemy_pokemon->getSize();
 
 $player_pokemon = !empty($data->p1->substitute)
     ? $imagine->open('./img/back/substitute.gif')
-    : openPokemonImage($imagine, 'back' . ($data->p1->shiny ? '-shiny' : ''), $data->p1->pokemon, $data->p1->forme, $data->p1->shiny);
+    : openPokemonImage($imagine, 'back', $data->p1->pokemon, $data->p1->forme, $data->p1->shiny);
 $player_pokemon_size = $player_pokemon->getSize();
 
 $male = $imagine->open('./img/male.png');
