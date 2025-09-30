@@ -22,9 +22,14 @@ jobs:
           remote_user: ${{ secrets.LIGHTSAIL_USER }}
           remote_key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
 
+      - name: Write SSH key to file
+        run: |
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > github-actions-key
+          chmod 600 github-actions-key
+
       - name: Install Composer dependencies & reload services
         run: |
-          ssh -o StrictHostKeyChecking=no -i <(echo "${{ secrets.LIGHTSAIL_SSH_KEY }}") \
+          ssh -o StrictHostKeyChecking=no -i github-actions-key \
             ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
               set -e
               cd ~/pokeventure-image
