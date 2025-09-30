@@ -32,7 +32,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i github-actions-key \
             ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
               set -e
-              cd ~/pokeventure-image
+              cd ~/pokeventure-image/src
               if [ -f composer.json ]; then
                 composer install --no-dev --optimize-autoloader
               fi
