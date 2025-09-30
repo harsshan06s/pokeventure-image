@@ -22,10 +22,16 @@ jobs:
           remote_user: ${{ secrets.LIGHTSAIL_USER }}
           remote_key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
 
-      - name: Reload PHP-FPM and Nginx
+      - name: Install Composer dependencies & reload services
         run: |
           ssh -o StrictHostKeyChecking=no -i <(echo "${{ secrets.LIGHTSAIL_SSH_KEY }}") \
             ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
-              sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.2-fpm;
+              set -e
+              cd ~/pokeventure-image
+              if [ -f composer.json ]; then
+                composer install --no-dev --optimize-autoloader
+              fi
+              sudo systemctl reload php8.1-fpm || true
+              sudo systemctl reload php8.2-fpm || true
               sudo systemctl reload nginx
             "
