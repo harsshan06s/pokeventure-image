@@ -17,7 +17,6 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          port: ${{ secrets.LIGHTSAIL_PORT || '22' }}
           script: |
             set -e
             cd $HOME/pokeventure-image || exit 1
