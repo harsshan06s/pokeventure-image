@@ -12,29 +12,25 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Write SSH key to file
+      - name: Write SSH key
         run: |
-          mkdir -p $HOME/.ssh
-          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > $HOME/.ssh/lightsail_key
-          chmod 600 $HOME/.ssh/lightsail_key
-          ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> $HOME/.ssh/known_hosts
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > github-actions-key
+          chmod 600 github-actions-key
 
-      - name: Push code via rsync over SSH
+      - name: Deploy via rsync and SSH
         run: |
           rsync -avzr --delete \
-            -e "ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no" \
+            -e "ssh -i github-actions-key -o StrictHostKeyChecking=no" \
             --exclude='.git' --exclude='vendor' \
             ./ ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:~/pokeventure-image/
 
       - name: Install Composer dependencies & reload services
         run: |
-          ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no \
-            ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
-              set -e
-              cd ~/pokeventure-image/src
-              if [ -f composer.json ]; then
-                composer install --no-dev --optimize-autoloader
-              fi
-              sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.2-fpm || true
-              sudo systemctl reload nginx
-            "
+          ssh -o StrictHostKeyChecking=no -i github-actions-key ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
+            cd ~/pokeventure-image/src &&
+            if [ -f composer.json ]; then
+              composer install --no-dev --optimize-autoloader
+            fi &&
+            sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.2-fpm || true &&
+            sudo systemctl reload nginx
+          "
