@@ -10,20 +10,26 @@ require 'vendor/autoload.php';
 
 function normalizeName($name) {
     $name = strtolower($name);
-    $name = str_replace([" ", "’", ".", ":", "é"], ["", "", "", "", "e"], $name);
+    $name = str_replace([" ", "'", ".", ":", "é"], ["", "", "", "", "e"], $name);
     $name = str_replace(
         ['mega-y','mega-x','-strike','white-striped','blue-striped','rock-star','pop-star','dusk-mane','dawn-wings'],
         ['megay','megax','strike','whitestriped','bluestriped','rockstar','popstar','duskmane','dawnwings'],
         $name
     );
-    // Only replace '-o' with 'o' for Pokémon that are NOT Origin forms
-if (!in_array(strtolower($name), ['giratina-origin', 'dialga-origin', 'palkia-origin'])) {
-    $name = str_replace('-o', 'o', $name);
-
+    
+    // Remove leading hyphen (normalize "-origin" to "origin")
+    $name = ltrim($name, '-');
+    
+    // Only replace internal '-o' with 'o' for Pokémon that are NOT Origin forms
+    if (!in_array($name, ['giratina-origin', 'dialga-origin', 'palkia-origin'])) {
+        $name = str_replace('-o', 'o', $name);
     }
+    
+    // Remove hyphens for nidoran and porygon (non-xmas)
     if (strpos($name, 'nidoran') !== false || (strpos($name, 'porygon') !== false && strpos($name, 'xmas') === false)) {
         $name = str_replace('-', '', $name);
     }
+    
     return $name;
 }
 

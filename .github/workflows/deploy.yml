@@ -12,31 +12,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Push code via rsync over SSH
-        uses: burnett01/rsync-deployments@5.2
-        with:
-          switches: -avzr --delete --temp-dir=/tmp
-          path: ./
-          remote_path: ~/pokeventure-image
-          remote_host: ${{ secrets.LIGHTSAIL_HOST }}
-          remote_user: ${{ secrets.LIGHTSAIL_USER }}
-          remote_key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-
       - name: Write SSH key to file
         run: |
-          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > github-actions-key
-          chmod 600 github-actions-key
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail_key
+          chmod 600 ~/.ssh/lightsail_key
+          ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Push code via rsync over SSH
+        run: |
+          rsync -avzr --delete \
+            -e "ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no" \
+            --exclude='.git' --exclude='vendor' \
+            ./ ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:~/pokeventure-image/
 
       - name: Install Composer dependencies & reload services
         run: |
-          ssh -o StrictHostKeyChecking=no -i github-actions-key \
+          ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no \
             ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} "
               set -e
               cd ~/pokeventure-image/src
               if [ -f composer.json ]; then
                 composer install --no-dev --optimize-autoloader
               fi
-              sudo systemctl reload php8.1-fpm || true
-              sudo systemctl reload php8.2-fpm || true
+              sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.2-fpm || true
               sudo systemctl reload nginx
             "
