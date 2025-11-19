@@ -120,11 +120,14 @@ $image->draw()->text('Lv.' . $data->p2->level, $font, new Point(155, 28));
 $image->draw()->text(strtoupper($namePlayer), $font, new Point(310, $canvasHeight - 95));
 $image->draw()->text('Lv. ' . $data->p1->level, $font, new Point(430, $canvasHeight - 95));
 
-if (!empty($data->p1->gender)) {
-    $image->paste($data->p1->gender == "M" ? $male : $female, new Point(304, $canvasHeight - 67));
+// Only paste gender icons when gender is explicitly 'M' or 'F' (case-insensitive).
+$g1 = isset($data->p1->gender) ? strtoupper(trim($data->p1->gender)) : '';
+$g2 = isset($data->p2->gender) ? strtoupper(trim($data->p2->gender)) : '';
+if ($g1 === 'M' || $g1 === 'F') {
+    $image->paste($g1 === 'M' ? $male : $female, new Point(304, $canvasHeight - 67));
 }
-if (!empty($data->p2->gender)) {
-    $image->paste($data->p2->gender == "M" ? $male : $female, new Point(26, 58));
+if ($g2 === 'M' || $g2 === 'F') {
+    $image->paste($g2 === 'M' ? $male : $female, new Point(26, 58));
 }
 
 $data1 = explode(' ', $data->p1->health);
