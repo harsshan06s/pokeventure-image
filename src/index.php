@@ -10,7 +10,9 @@ require 'vendor/autoload.php';
 
 function normalizeName($name) {
     $name = strtolower($name);
-    $name = str_replace([" ", "'", ".", ":", "é"], ["", "", "", "", "e"], $name);
+    // Remove spaces and common apostrophe variants (ASCII and curly), dots, colons
+    // and normalize 'é' to 'e'. This ensures names like Farfetch’d-Galar -> farfetchd-galar
+    $name = str_replace([" ", "'", "’", "‘", ".", ":", "é"], ["", "", "", "", "", "", "e"], $name);
     $name = str_replace(
         ['mega-y','mega-x','-strike','white-striped','blue-striped','rock-star','pop-star','dusk-mane','dawn-wings'],
         ['megay','megax','strike','whitestriped','bluestriped','rockstar','popstar','duskmane','dawnwings'],
