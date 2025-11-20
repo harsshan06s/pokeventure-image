@@ -10,6 +10,14 @@ require 'vendor/autoload.php';
 
 function normalizeName($name) {
     $name = strtolower($name);
+    // Normalize Unicode to composed form when possible to handle decomposed accents
+    // (e.g. 'e' + U+0301 -> 'é'). This helps with names like "Flabébé".
+    if (class_exists('Normalizer')) {
+        $name = Normalizer::normalize($name, Normalizer::FORM_C);
+    } else {
+        // Fallback: replace common decomposed sequences (e + combining acute)
+        $name = str_replace(["e\u{0301}", "E\u{0301}"], ["é", "É"], $name);
+    }
     // Remove spaces and common apostrophe variants (ASCII and curly), dots, colons
     // and normalize 'é' to 'e'. This ensures names like Farfetch’d-Galar -> farfetchd-galar
     $name = str_replace([" ", "'", "’", "‘", ".", ":", "é"], ["", "", "", "", "", "", "e"], $name);
