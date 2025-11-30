@@ -168,25 +168,41 @@ function getClientIp() {
 $ip = getClientIp();
 if ($IP_SALT && $BOT_LOG_URL && $IMAGE_LOG_SECRET) {
     $ipHash = hash_hmac('sha256', $ip, $IP_SALT);
+    // Prefer discord_id from the payload; fallback to GET param
     $discordId = $data->p1->discord_id ?? ($_GET['discord_id'] ?? null);
+
+    // Build JSON body with unescaped unicode/slashes for clarity
     $payload = json_encode([
         'ip_hash' => $ipHash,
         'discord_id' => $discordId,
         'image' => $data->type ?? 'wild',
         'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
         'ts' => time()
-    ]);
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    // Trim quotes or accidental whitespace around the secret so header is exact
+    $trimmedSecret = trim($IMAGE_LOG_SECRET, "'\"\s\t\n\r\0\x0B");
 
     $ch = curl_init($BOT_LOG_URL);
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
-        'X-Image-Log-Secret: ' . $IMAGE_LOG_SECRET
+        'X-Image-Log-Secret: ' . $trimmedSecret
     ]);
+    // Make request non-blocking/quiet for the image response path
     curl_setopt($ch, CURLOPT_TIMEOUT_MS, 200);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 200);
-    curl_exec($ch);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $result = curl_exec($ch);
+    $curlErrNo = curl_errno($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    if ($curlErrNo) {
+        error_log('image-log curl error: ' . curl_error($ch) . ' (errno ' . $curlErrNo . ')');
+    } elseif ($httpCode >= 400) {
+        error_log('image-log http failure: HTTP ' . $httpCode . ' response: ' . substr((string)$result, 0, 1000));
+    }
     curl_close($ch);
 }
 
