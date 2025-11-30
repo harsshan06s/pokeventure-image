@@ -180,6 +180,12 @@ if ($IP_SALT && $BOT_LOG_URL && $IMAGE_LOG_SECRET) {
         'ts' => time()
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
+    // Log the discord_id and a truncated payload for debugging (no raw IPs)
+    // This helps diagnose why discord_id may be missing when the bot receives the POST.
+    $sanitizedDiscord = $discordId ? preg_replace('/[^0-9]/', '', (string)$discordId) : 'NULL';
+    error_log('image-log: discord_id=' . $sanitizedDiscord . ' payload_len=' . strlen($payload));
+    error_log('image-log payload (truncated): ' . substr($payload, 0, 1000));
+
     // Trim quotes or accidental whitespace around the secret so header is exact
     $trimmedSecret = trim($IMAGE_LOG_SECRET, "'\"\s\t\n\r\0\x0B");
 
