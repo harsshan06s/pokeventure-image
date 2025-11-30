@@ -1,4 +1,7 @@
 <?php
+// web/index.php
+// Image endpoint that renders battle images and sends a privacy-preserving IP fingerprint to the bot server.
+
 if (empty($_GET['d'])) {
     http_response_code(200);
     echo "Hello trainer!";
@@ -8,38 +11,37 @@ if (empty($_GET['d'])) {
 $data = json_decode(base64_decode($_GET['d']));
 require 'vendor/autoload.php';
 
+// Configuration: set these environment variables on the webserver
+// IMAGE_LOG_SECRET: shared secret header value to authenticate POSTs to bot
+// IP_SALT: secret used to HMAC the remote IP (never store raw IPs)
+// BOT_LOG_URL: full URL to POST image logs to (e.g. https://bot.example.com/api/image-log)
+
+$IMAGE_LOG_SECRET = getenv('IMAGE_LOG_SECRET');
+$IP_SALT = getenv('IP_SALT');
+$BOT_LOG_URL = getenv('BOT_LOG_URL');
+// If set to '1', trust the X-Forwarded-For header (only enable when behind a trusted proxy/loadbalancer)
+$TRUST_PROXY = getenv('TRUST_PROXY');
+
 function normalizeName($name) {
     $name = strtolower($name);
-    // Normalize Unicode to composed form when possible to handle decomposed accents
-    // (e.g. 'e' + U+0301 -> 'é'). This helps with names like "Flabébé".
     if (class_exists('Normalizer')) {
         $name = Normalizer::normalize($name, Normalizer::FORM_C);
     } else {
-        // Fallback: replace common decomposed sequences (e + combining acute)
         $name = str_replace(["e\u{0301}", "E\u{0301}"], ["é", "É"], $name);
     }
-    // Remove spaces and common apostrophe variants (ASCII and curly), dots, colons
-    // and normalize 'é' to 'e'. This ensures names like Farfetch’d-Galar -> farfetchd-galar
     $name = str_replace([" ", "'", "’", "‘", ".", ":", "é"], ["", "", "", "", "", "", "e"], $name);
     $name = str_replace(
         ['mega-y','mega-x','-strike','white-striped','blue-striped','rock-star','pop-star','dusk-mane','dawn-wings'],
         ['megay','megax','strike','whitestriped','bluestriped','rockstar','popstar','duskmane','dawnwings'],
         $name
     );
-    
-    // Remove leading hyphen (normalize "-origin" to "origin")
     $name = ltrim($name, '-');
-    
-    // Only replace internal '-o' with 'o' for Pokémon that are NOT Origin forms
     if (!in_array($name, ['giratina-origin', 'dialga-origin', 'palkia-origin'])) {
         $name = str_replace('-o', 'o', $name);
     }
-    
-    // Remove hyphens for nidoran and porygon (non-xmas)
     if (strpos($name, 'nidoran') !== false || (strpos($name, 'porygon') !== false && strpos($name, 'xmas') === false)) {
         $name = str_replace('-', '', $name);
     }
-    
     return $name;
 }
 
@@ -55,27 +57,14 @@ $canvasHeight = 288;
 $image = $imagine->create(new Box($canvasWidth, $canvasHeight));
 $bg = $imagine->open('./img/bgs/' . $data->location . '.jpeg');
 
-/**
- * Try several candidate filenames for a pokemon image to support form naming variations.
- * Preference order:
- *  1) direct concat: pokemon + forme
- *  2) pokemon + '-' + (forme without leading '-'),
- *  3) pokemon only
- */
 function openPokemonImage($imagine, $sideDir, $pokemonName, $formeName, $shiny = false) {
     $baseDir = './img/' . $sideDir . ($shiny ? '-shiny' : '') . '/';
     $p = normalizeName($pokemonName);
     $f = normalizeName($formeName);
 
     $candidates = [];
-
-    // 1) direct concat (existing behavior)
     if ($f !== '') $candidates[] = $baseDir . $p . $f . '.gif';
-
-    // 2) explicit hyphen between pokemon and forme (handles cases where forme doesn't include leading hyphen)
     if ($f !== '') $candidates[] = $baseDir . $p . '-' . ltrim($f, '-') . '.gif';
-
-    // 3) fallback to pokemon alone
     $candidates[] = $baseDir . $p . '.gif';
 
     foreach ($candidates as $path) {
@@ -84,11 +73,8 @@ function openPokemonImage($imagine, $sideDir, $pokemonName, $formeName, $shiny =
                 return $imagine->open($path);
             }
         } catch (Exception $e) {
-            // ignore and try next
         }
     }
-
-    // final fallback
     return $imagine->open('./img/missingno.png');
 }
 
@@ -128,7 +114,6 @@ $image->draw()->text('Lv.' . $data->p2->level, $font, new Point(155, 28));
 $image->draw()->text(strtoupper($namePlayer), $font, new Point(310, $canvasHeight - 95));
 $image->draw()->text('Lv. ' . $data->p1->level, $font, new Point(430, $canvasHeight - 95));
 
-// Only paste gender icons when gender is explicitly 'M' or 'F' (case-insensitive).
 $g1 = isset($data->p1->gender) ? strtoupper(trim($data->p1->gender)) : '';
 $g2 = isset($data->p2->gender) ? strtoupper(trim($data->p2->gender)) : '';
 if ($g1 === 'M' || $g1 === 'F') {
@@ -165,4 +150,46 @@ function drawHpBar($hpText, $x1, $y1, $x2, $y2, $image, $palette) {
 drawHpBar($hpTextP2, 99, 53, 99 + 95, 58, $image, $palette);
 drawHpBar($hpTextP1, 376, 218, 376 + 95, 223, $image, $palette);
 
+// Determine client IP safely. Use X-Forwarded-For only when TRUST_PROXY is explicitly enabled.
+function getClientIp() {
+    global $TRUST_PROXY;
+    // Prefer X-Forwarded-For when trust is enabled and header is present
+    if ($TRUST_PROXY === '1' && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        $candidate = trim($parts[0]);
+        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+            return $candidate;
+        }
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+}
+
+// Privacy-preserving IP logging: compute HMAC(ip) and send minimal info to bot
+$ip = getClientIp();
+if ($IP_SALT && $BOT_LOG_URL && $IMAGE_LOG_SECRET) {
+    $ipHash = hash_hmac('sha256', $ip, $IP_SALT);
+    $discordId = $data->p1->discord_id ?? ($_GET['discord_id'] ?? null);
+    $payload = json_encode([
+        'ip_hash' => $ipHash,
+        'discord_id' => $discordId,
+        'image' => $data->type ?? 'wild',
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+        'ts' => time()
+    ]);
+
+    $ch = curl_init($BOT_LOG_URL);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'X-Image-Log-Secret: ' . $IMAGE_LOG_SECRET
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 200);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 200);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
 $image->show('jpg', ['jpeg_quality' => 90, 'resolution-x' => $canvasWidth, 'resolution-y' => $canvasHeight]);
+
+?>
