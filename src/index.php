@@ -21,6 +21,10 @@ $IP_SALT = getenv('IP_SALT');
 $BOT_LOG_URL = getenv('BOT_LOG_URL');
 // If set to '1', trust the X-Forwarded-For header (only enable when behind a trusted proxy/loadbalancer)
 $TRUST_PROXY = getenv('TRUST_PROXY');
+// Optional salt for additional fingerprints (UA, Accept-Language, combined). If not set, fall back to IP_SALT
+$FINGERPRINT_SALT = getenv('FINGERPRINT_SALT') ?: $IP_SALT;
+// Optional secret to verify signed discord_id parameters (bot-side signing)
+$BOT_SIGN_SECRET = getenv('BOT_SIGN_SECRET');
 
 function normalizeName($name) {
     $name = strtolower($name);
@@ -166,8 +170,41 @@ function getClientIp() {
 
 // Privacy-preserving IP logging: compute HMAC(ip) and send minimal info to bot
 $ip = getClientIp();
+
+// Raw headers
+$rawUa = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$rawAcceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+
+// Normalization helpers (local, keep simple and deterministic)
+function normalizeUaLocal($ua) {
+    $u = trim($ua);
+    // remove comments like (KHTML, like Gecko)
+    $u = preg_replace('/\([^)]*\)/', '', $u);
+    // collapse whitespace and lowercase
+    $u = preg_replace('/\s+/', ' ', $u);
+    return strtolower(trim($u));
+}
+
+function normalizeAcceptLangLocal($al) {
+    $a = strtolower(trim($al));
+    if ($a === '') return '';
+    $parts = explode(',', $a);
+    $first = trim($parts[0]);
+    $first = preg_replace('/;q=[0-9\.]+$/', '', $first);
+    return $first;
+}
+
+$normUa = normalizeUaLocal($rawUa);
+$normAcceptLang = normalizeAcceptLangLocal($rawAcceptLang);
+
 if ($IP_SALT && $BOT_LOG_URL && $IMAGE_LOG_SECRET) {
     $ipHash = hash_hmac('sha256', $ip, $IP_SALT);
+
+    // Compute HMAC fingerprints using the fingerprint salt
+    $uaHash = $FINGERPRINT_SALT ? hash_hmac('sha256', $normUa, $FINGERPRINT_SALT) : null;
+    $acceptLangHash = $FINGERPRINT_SALT ? hash_hmac('sha256', $normAcceptLang, $FINGERPRINT_SALT) : null;
+    $combinedHash = $FINGERPRINT_SALT ? hash_hmac('sha256', $ip . '|' . $normUa . '|' . $normAcceptLang, $FINGERPRINT_SALT) : null;
+
     // Prefer discord_id from the payload; fallback to several common locations.
     // Accept snake_case, camelCase, top-level, GET param, or X-Discord-Id header.
     $discordId = null;
@@ -190,12 +227,29 @@ if ($IP_SALT && $BOT_LOG_URL && $IMAGE_LOG_SECRET) {
         if ($discordId === '') $discordId = null;
     }
 
+    // If a BOT_SIGN_SECRET is configured, optionally verify a signature to prevent spoofing when discord_id
+    // comes from a query param. Signature fields supported: sig and exp (unix timestamp).
+    if (!empty($BOT_SIGN_SECRET)) {
+        $sig = $_GET['sig'] ?? ($data->p1->sig ?? null) ?? null;
+        $exp = $_GET['exp'] ?? ($data->p1->exp ?? null) ?? null;
+        if ($discordId !== null && $sig !== null && $exp !== null) {
+            $expected = hash_hmac('sha256', $discordId . '|' . $exp, $BOT_SIGN_SECRET);
+            if (!hash_equals($expected, (string)$sig) || (int)$exp < time()) {
+                error_log('image-log: discord_id signature verification failed or expired');
+                $discordId = null; // discard if verification fails
+            }
+        }
+    }
+
     // Build JSON body with unescaped unicode/slashes for clarity
     $payload = json_encode([
         'ip_hash' => $ipHash,
         'discord_id' => $discordId,
         'image' => $data->type ?? 'wild',
-        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+        'ua' => $rawUa,
+        'ua_hash' => $uaHash,
+        'accept_language_hash' => $acceptLangHash,
+        'combined_hash' => $combinedHash,
         'ts' => time()
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
