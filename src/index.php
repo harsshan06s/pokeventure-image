@@ -168,8 +168,27 @@ function getClientIp() {
 $ip = getClientIp();
 if ($IP_SALT && $BOT_LOG_URL && $IMAGE_LOG_SECRET) {
     $ipHash = hash_hmac('sha256', $ip, $IP_SALT);
-    // Prefer discord_id from the payload; fallback to GET param
-    $discordId = $data->p1->discord_id ?? ($_GET['discord_id'] ?? null);
+    // Prefer discord_id from the payload; fallback to several common locations.
+    // Accept snake_case, camelCase, top-level, GET param, or X-Discord-Id header.
+    $discordId = null;
+    if (!empty($data->p1->discord_id)) {
+        $discordId = (string)$data->p1->discord_id;
+    } elseif (!empty($data->p1->discordId)) {
+        $discordId = (string)$data->p1->discordId;
+    } elseif (!empty($data->p1->user_id)) {
+        $discordId = (string)$data->p1->user_id;
+    } elseif (!empty($data->discord_id)) {
+        $discordId = (string)$data->discord_id;
+    } elseif (!empty($_GET['discord_id'])) {
+        $discordId = (string)$_GET['discord_id'];
+    } elseif (!empty($_SERVER['HTTP_X_DISCORD_ID'])) {
+        $discordId = (string)$_SERVER['HTTP_X_DISCORD_ID'];
+    }
+    // Normalize to digits-only (Discord IDs are numeric). If nothing valid, leave null.
+    if ($discordId !== null) {
+        $discordId = preg_replace('/\D/', '', $discordId);
+        if ($discordId === '') $discordId = null;
+    }
 
     // Build JSON body with unescaped unicode/slashes for clarity
     $payload = json_encode([
