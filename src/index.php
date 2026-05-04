@@ -15,7 +15,7 @@ require 'vendor/autoload.php';
 // IMAGE_LOG_SECRET: shared secret header value to authenticate POSTs to bot
 // IP_SALT: secret used to HMAC the remote IP (never store raw IPs)
 // BOT_LOG_URL: full URL to POST image logs to (e.g. https://bot.example.com/api/image-log)
-
+ 
 $IMAGE_LOG_SECRET = getenv('IMAGE_LOG_SECRET');
 $IP_SALT = getenv('IP_SALT');
 $BOT_LOG_URL = getenv('BOT_LOG_URL');
