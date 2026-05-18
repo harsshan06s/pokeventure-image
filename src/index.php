@@ -71,6 +71,11 @@ function openPokemonImage($imagine, $sideDir, $pokemonName, $formeName, $shiny =
     if ($f !== '') $candidates[] = $baseDir . $p . '-' . ltrim($f, '-') . '.gif';
     $candidates[] = $baseDir . $p . '.gif';
 
+    // If GIF not available, allow PNG variants as secondary fallback
+    if ($f !== '') $candidates[] = $baseDir . $p . $f . '.png';
+    if ($f !== '') $candidates[] = $baseDir . $p . '-' . ltrim($f, '-') . '.png';
+    $candidates[] = $baseDir . $p . '.png';
+
     foreach ($candidates as $path) {
         try {
             if (is_file($path)) {
