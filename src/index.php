@@ -95,6 +95,13 @@ $enemy_pokemon_size = $enemy_pokemon->getSize();
 $player_pokemon = !empty($data->p1->substitute)
     ? $imagine->open('./img/back/substitute.gif')
     : openPokemonImage($imagine, 'back', $data->p1->pokemon, $data->p1->forme, $data->p1->shiny);
+$player_flip_backsprite = !empty($data->p1->flipBacksprite);
+if ($player_flip_backsprite && !empty($data->p1->substitute)) {
+    $player_flip_backsprite = false;
+}
+if ($player_flip_backsprite) {
+    $player_pokemon->flipHorizontally();
+}
 $player_pokemon_size = $player_pokemon->getSize();
 
 $male = $imagine->open('./img/male.png');
