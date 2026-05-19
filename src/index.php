@@ -92,10 +92,19 @@ $enemy_pokemon = !empty($data->p2->substitute)
     : openPokemonImage($imagine, 'front', $data->p2->pokemon, $data->p2->forme, $data->p2->shiny);
 $enemy_pokemon_size = $enemy_pokemon->getSize();
 
+
+$player_flip_backsprite = !empty($data->p1->flipBacksprite);
+
 $player_pokemon = !empty($data->p1->substitute)
     ? $imagine->open('./img/back/substitute.gif')
-    : openPokemonImage($imagine, 'back', $data->p1->pokemon, $data->p1->forme, $data->p1->shiny);
-$player_flip_backsprite = !empty($data->p1->flipBacksprite);
+    : openPokemonImage(
+        $imagine,
+        $player_flip_backsprite ? 'front' : 'back',
+        $data->p1->pokemon,
+        $data->p1->forme,
+        $data->p1->shiny
+    );
+
 if ($player_flip_backsprite && !empty($data->p1->substitute)) {
     $player_flip_backsprite = false;
 }
